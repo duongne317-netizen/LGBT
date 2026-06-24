@@ -1,0 +1,1014 @@
+local Player = game.Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+local Lighting = game:GetService("Lighting")
+local Terrain = game:GetService("Workspace"):FindFirstChildOfClass("Terrain")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local existingGui = PlayerGui:FindFirstChild("indonesiaScript_Base")
+if existingGui then existingGui:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "indonesiaScript_Base"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+
+-- Variabel Fitur
+local isAutoFarming = false
+local isAutoSelling = false
+local isFpsBoostActive = false
+local isEspActive = false
+local isAntiRkActive = false -- FITUR BARU: Status Anti RK
+local currentLanguage = "ID"
+local originalMaterials = {}
+local originalLighting = {}
+local mcFont = Enum.Font.Code
+local espObjects = {}
+local lastHealth = 100
+
+local TeleportLocations = {
+    {"Dealership 🚗", Vector3.new(732.15, 3.71, 440.84)},
+    {"NPC Marshmallow 🍢", Vector3.new(510.86, 3.59, 600.58)},
+    {"Gunshop Mid 🔫", Vector3.new(215.91, 3.74, -175.05)},
+    {"Gunshop Ujung 🔫", Vector3.new(-469.25, 3.86, 358.66)},
+    {"Gunshop Tier 🔫", Vector3.new(1126.14, 3.79, 173.18)},
+    {"Casino 🎰", Vector3.new(1154.55, 3.36, -36.99)},
+    {"Deli Groseri 🏪", Vector3.new(-773.4, 3.66, -196.92)},
+    {"Apart 1 🏢", Vector3.new(1141.56, 10.11, 450.21)},
+    {"Apart 2 🏢", Vector3.new(1141.31, 10.11, 421.22)},
+    {"Apart 3 🏢", Vector3.new(986.26, 10.11, 249.57)},
+    {"Apart 4 🏢", Vector3.new(985.64, 10.11, 221.44)},
+    {"Apart CSN 1 🏢", Vector3.new(1178.64, 3.71, -229.34)},
+    {"Apart CSN 2 🏢", Vector3.new(1204.1, 3.71, -218.31)},
+    {"Apart CSN 3 🏢", Vector3.new(1203.83, 3.71, -180.34)},
+    {"Apart CSN 4 🏢", Vector3.new(1178.59, 4.63, -189.74)}
+}
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 340, 0, 460)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -230)
+MainFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Color3.fromRGB(255, 215, 0)
+MainFrame.Active = true
+MainFrame.Visible = true
+MainFrame.Parent = ScreenGui
+
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Text = "X"
+CloseButton.Font = mcFont
+CloseButton.TextSize = 18
+CloseButton.Parent = MainFrame
+
+local OpenButton = Instance.new("TextButton")
+OpenButton.Size = UDim2.new(0, 110, 0, 35)
+OpenButton.Position = UDim2.new(0, 10, 0, 10)
+OpenButton.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+OpenButton.TextColor3 = Color3.fromRGB(255, 215, 0)
+OpenButton.Text = "[ Open indo ]"
+OpenButton.Font = mcFont
+OpenButton.TextSize = 14
+OpenButton.Visible = false
+OpenButton.BorderSizePixel = 2
+OpenButton.BorderColor3 = Color3.fromRGB(255, 215, 0)
+OpenButton.ZIndex = 10
+OpenButton.Parent = ScreenGui
+
+local function toggleGui()
+    MainFrame.Visible = not MainFrame.Visible
+    OpenButton.Visible = not MainFrame.Visible
+end
+CloseButton.MouseButton1Click:Connect(toggleGui)
+OpenButton.MouseButton1Click:Connect(toggleGui)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.M then toggleGui() end
+end)
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = "indonesiaScript v3.2"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = mcFont
+Title.TextSize = 18
+Title.Parent = MainFrame
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, 0, 0, 35)
+TabBar.Position = UDim2.new(0, 0, 0, 40)
+TabBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+TabBar.BorderSizePixel = 0
+TabBar.Parent = MainFrame
+
+local TabHome = Instance.new("ScrollingFrame")
+TabHome.Name = "TabHome"
+TabHome.Size = UDim2.new(1, -20, 1, -95)
+TabHome.Position = UDim2.new(0, 10, 0, 85)
+TabHome.BackgroundTransparency = 1
+TabHome.CanvasSize = UDim2.new(0, 0, 0, 480) -- Ditambah sedikit space untuk tombol baru
+TabHome.ScrollBarThickness = 5
+TabHome.Visible = true
+TabHome.Parent = MainFrame
+
+local TabTeleport = Instance.new("ScrollingFrame")
+TabTeleport.Name = "TabTeleport"
+TabTeleport.Size = UDim2.new(1, -20, 1, -95)
+TabTeleport.Position = UDim2.new(0, 10, 0, 85)
+TabTeleport.BackgroundTransparency = 1
+TabTeleport.CanvasSize = UDim2.new(0, 0, 0, 600)
+TabTeleport.ScrollBarThickness = 5
+TabTeleport.Visible = false
+TabTeleport.Parent = MainFrame
+
+local TabCredits = Instance.new("ScrollingFrame")
+TabCredits.Name = "TabCredits"
+TabCredits.Size = UDim2.new(1, -20, 1, -95)
+TabCredits.Position = UDim2.new(0, 10, 0, 85)
+TabCredits.BackgroundTransparency = 1
+TabCredits.CanvasSize = UDim2.new(0, 0, 0, 250)
+TabCredits.ScrollBarThickness = 5
+TabCredits.Visible = false
+TabCredits.Parent = MainFrame
+
+local LayoutHome = Instance.new("UIListLayout")
+LayoutHome.Padding = UDim.new(0, 6)
+LayoutHome.Parent = TabHome
+
+local LayoutTeleport = Instance.new("UIListLayout")
+LayoutTeleport.Padding = UDim.new(0, 6)
+LayoutTeleport.Parent = TabTeleport
+
+local LayoutCredits = Instance.new("UIListLayout")
+LayoutCredits.Padding = UDim.new(0, 6)
+LayoutCredits.Parent = TabCredits
+
+local function createButton(text, container, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 32)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = mcFont
+    btn.TextSize = 13
+    btn.Text = text
+    btn.Parent = container
+    if callback then btn.MouseButton1Click:Connect(callback) end
+    return btn
+end
+
+local function createLabel(text, container, color)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -10, 0, 22)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+    lbl.Font = mcFont
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Text = text
+    lbl.Parent = container
+    return lbl
+end
+
+local BtnTabHome = Instance.new("TextButton")
+BtnTabHome.Size = UDim2.new(0.33, 0, 1, 0)
+BtnTabHome.Position = UDim2.new(0, 0, 0, 0)
+BtnTabHome.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+BtnTabHome.Text = "Home / Farm"
+BtnTabHome.TextColor3 = Color3.fromRGB(255, 215, 0)
+BtnTabHome.Font = mcFont
+BtnTabHome.TextSize = 11
+BtnTabHome.Parent = TabBar
+
+local BtnTabTeleport = Instance.new("TextButton")
+BtnTabTeleport.Size = UDim2.new(0.33, 0, 1, 0)
+BtnTabTeleport.Position = UDim2.new(0.33, 0, 0, 0)
+BtnTabTeleport.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+BtnTabTeleport.Text = "Teleport"
+BtnTabTeleport.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnTabTeleport.Font = mcFont
+BtnTabTeleport.TextSize = 11
+BtnTabTeleport.Parent = TabBar
+
+local BtnTabCredits = Instance.new("TextButton")
+BtnTabCredits.Size = UDim2.new(0.34, 0, 1, 0)
+BtnTabCredits.Position = UDim2.new(0.66, 0, 0, 0)
+BtnTabCredits.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+BtnTabCredits.Text = "Credits"
+BtnTabCredits.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnTabCredits.Font = mcFont
+BtnTabCredits.TextSize = 11
+BtnTabCredits.Parent = TabBar
+
+local function showTab(tabName)
+    TabHome.Visible = (tabName == "Home")
+    TabTeleport.Visible = (tabName == "Teleport")
+    TabCredits.Visible = (tabName == "Credits")
+    BtnTabHome.BackgroundColor3 = (tabName == "Home") and Color3.fromRGB(55, 55, 55) or Color3.fromRGB(40, 40, 40)
+    BtnTabHome.TextColor3 = (tabName == "Home") and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(255, 255, 255)
+    BtnTabTeleport.BackgroundColor3 = (tabName == "Teleport") and Color3.fromRGB(55, 55, 55) or Color3.fromRGB(40, 40, 40)
+    BtnTabTeleport.TextColor3 = (tabName == "Teleport") and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(255, 255, 255)
+    BtnTabCredits.BackgroundColor3 = (tabName == "Credits") and Color3.fromRGB(55, 55, 55) or Color3.fromRGB(40, 40, 40)
+    BtnTabCredits.TextColor3 = (tabName == "Credits") and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(255, 255, 255)
+end
+
+BtnTabHome.MouseButton1Click:Connect(function() showTab("Home") end)
+BtnTabTeleport.MouseButton1Click:Connect(function() showTab("Teleport") end)
+BtnTabCredits.MouseButton1Click:Connect(function() showTab("Credits") end)
+
+local function runTeleport(targetPos)
+    local targetCFrame = CFrame.new(targetPos) + Vector3.new(0, 4, 0)
+    local character = Player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local vehicle = nil
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("VehicleSeat") or obj:IsA("Seat") then
+                if obj.Occupant == character:FindFirstChildOfClass("Humanoid") then
+                    vehicle = obj.Parent
+                    break
+                end
+            end
+        end
+        
+        if vehicle and vehicle:IsA("Model") then
+            vehicle:PivotTo(targetCFrame)
+            return 
+        end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Health = 0
+            local newCharacter = Player.CharacterAdded:Wait()
+            local newRoot = newCharacter:WaitForChild("HumanoidRootPart", 10)
+            if newRoot then
+                task.wait(0.2)
+                newRoot.CFrame = targetCFrame
+            end
+        end
+    end
+end
+
+for _, locData in ipairs(TeleportLocations) do
+    local tpBtn = createButton("Go to: " .. locData[1], TabTeleport)
+    tpBtn.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
+    tpBtn.MouseButton1Click:Connect(function() runTeleport(locData[2]) end)
+end
+-- Tombol Anti RK baru di TabHome
+local AntiRkBtn = createButton("Anti RK (Safe Zone): OFF", TabHome)
+AntiRkBtn.MouseButton1Click:Connect(function()
+    isAntiRkActive = not isAntiRkActive
+    AntiRkBtn.BackgroundColor3 = isAntiRkActive and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50)
+    AntiRkBtn.Text = isAntiRkActive and "Anti RK (Safe Zone): ON" or "Anti RK (Safe Zone): OFF"
+    if isAntiRkActive and Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+        lastHealth = Player.Character:FindFirstChildOfClass("Humanoid").Health
+    end
+end)
+
+-- Loop Monitor Darah untuk Anti RK
+RunService.Heartbeat:Connect(function()
+    if isAntiRkActive and Player.Character then
+        local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoid.Health > 0 then
+            if humanoid.Health < lastHealth then
+                -- Darah berkurang! Langsung teleport ke Safe Zone Anda secara instan bersama kendaraan
+                runTeleport(Vector3.new(-675.08, 3.36, 49.62))
+                lastHealth = humanoid.Health
+            else
+                lastHealth = humanoid.Health
+            end
+        end
+    end
+end)
+
+local LangBtn = createButton("Ganti Bahasa: Indonesia", TabHome)
+LangBtn.MouseButton1Click:Connect(function()
+    if currentLanguage == "ID" then
+        currentLanguage = "ENG"
+        LangBtn.Text = "Language: English"
+    else
+        currentLanguage = "ID"
+        LangBtn.Text = "Ganti Bahasa: Indonesia"
+    end
+end)
+
+local EspBtn = createButton("ESP: OFF", TabHome)
+local FpsBtn = createButton("SUPER EKSTREM FPS Boost: OFF", TabHome)
+local FarmStatus = createLabel("Status Farm: Menunggu...", TabHome, Color3.fromRGB(255, 255, 255))
+local FarmBtn = createButton("Toggle Auto Farm: OFF", TabHome)
+local SellStatus = createLabel("Status Sell: Idle", TabHome, Color3.fromRGB(255, 255, 255))
+local SellBtn = createButton("Toggle Auto Sell: OFF", TabHome)
+
+createLabel("--- INDIKATOR TABUNGAN ---", TabHome, Color3.fromRGB(255, 215, 0))
+local InvWater = createLabel("Water/Air: 0", TabHome)
+local InvSugar = createLabel("Sugar Block Bag/Tas Blok Gula: 0", TabHome)
+local InvGelatin = createLabel("Gelatin: 0", TabHome)
+local InvSmallMBag = createLabel("Small Marshmallow Bag: 0", TabHome)
+local InvMedMBag = createLabel("Medium Marshmallow Bag: 0", TabHome)
+local InvLargeMBag = createLabel("Large Marshmallow Bag: 0", TabHome)
+
+createLabel("Skrip ini dibuat khusus untuk kamu.", TabCredits, Color3.fromRGB(255, 255, 255))
+createLabel("Pembuat: cocacola_espuma92", TabCredits)
+createLabel("Versi Penggabungan: 3.2 (3 Tab Menu)", TabCredits)
+createLabel("Tekan [M] untuk Menyembunyikan/Membuka GUI", TabCredits, Color3.fromRGB(255, 215, 0))
+
+local function createEsp(player)
+    if player == Player then return end
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "Esp_Billboard"
+    billboard.Size = UDim2.new(0, 200, 0, 60)
+    billboard.AlwaysOnTop = true
+    billboard.ExtentsOffset = Vector3.new(0, 3, 0)
+    billboard.Enabled = isEspActive
+    local espLabel = Instance.new("TextLabel")
+    espLabel.Size = UDim2.new(1, 0, 1, 0)
+    espLabel.BackgroundTransparency = 1
+    espLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    espLabel.TextSize = 13
+    espLabel.Font = mcFont
+    espLabel.TextStrokeTransparency = 0
+    espLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    espLabel.Parent = billboard
+    espObjects[player] = {Billboard = billboard, Label = espLabel}
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        if espObjects[player] == nil then
+            connection:Disconnect()
+        else
+            if not isEspActive or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") or not player.Character:FindFirstChild("Humanoid") then
+                billboard.Enabled = false
+                return
+            end
+            local char = player.Character
+            local hrp = char.HumanoidRootPart
+            local hum = char.Humanoid
+            local heldTool = char:FindFirstChildOfClass("Tool")
+            local toolName = heldTool and heldTool.Name or "None"
+            local distance = (Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")) and math.floor((Player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude) or 0
+            espLabel.Text = string.format("Name: %s\nHP: %d/%d\nTool: %s\nDist: %dm", player.Name, math.floor(hum.Health), math.floor(hum.MaxHealth), toolName, distance)
+            if billboard.Adornee ~= hrp then billboard.Adornee = hrp end
+            billboard.Enabled = true
+        end
+    end)
+    billboard.Parent = ScreenGui
+end
+
+local function removeEsp(player)
+    if espObjects[player] then
+        espObjects[player].Billboard:Destroy()
+        espObjects[player] = nil
+    end
+end
+
+for _, p in pairs(game.Players:GetPlayers()) do createEsp(p) end
+game.Players.PlayerAdded:Connect(createEsp)
+game.Players.PlayerRemoving:Connect(removeEsp)
+
+EspBtn.MouseButton1Click:Connect(function()
+    isEspActive = not isEspActive
+    EspBtn.BackgroundColor3 = isEspActive and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50)
+    EspBtn.Text = isEspActive and "ESP: ON" or "ESP: OFF"
+    for _, obj in pairs(espObjects) do obj.Billboard.Enabled = isEspActive end
+end)
+
+local function optimizeObject(object)
+    if not isFpsBoostActive then return end
+    if object:IsA("Part") or object:IsA("CornerWedgePart") or object:IsA("MeshPart") or object:IsA("WedgePart") then
+        if not originalMaterials[object] then
+            originalMaterials[object] = {Material = object.Material, CastShadow = object.CastShadow, Reflectance = object.Reflectance}
+        end
+        object.Material = Enum.Material.SmoothPlastic
+        object.CastShadow = false
+        object.Reflectance = 0
+    elseif object:IsA("Decal") or object:IsA("Texture") or object:IsA("Clothing") or object:IsA("ShirtGraphic") then
+        object:Destroy()
+    elseif object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Smoke") or object:IsA("Fire") or object:IsA("Sparkles") or object:IsA("Beam") then
+        object.Enabled = false
+    elseif object:IsA("Explosion") then
+        object.Visible = false
+    elseif object:IsA("Light") then
+        object.Enabled = false
+    elseif object:IsA("Mesh") or object:IsA("SpecialMesh") then
+        object:Destroy()
+    end
+end
+
+FpsBtn.MouseButton1Click:Connect(function()
+    isFpsBoostActive = not isFpsBoostActive
+    if isFpsBoostActive then
+        FpsBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+        FpsBtn.Text = "SUPER EKSTREM FPS Boost: ON"
+        originalLighting = {GlobalShadows = Lighting.GlobalShadows, FogEnd = Lighting.FogEnd, Outlines = Lighting.Outlines, EnvironmentSpecularScale = Lighting.EnvironmentSpecularScale, EnvironmentDiffuseScale = Lighting.EnvironmentDiffuseScale}
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 9e9
+        Lighting.Outlines = false
+        Lighting.EnvironmentSpecularScale = 0
+        Lighting.EnvironmentDiffuseScale = 0
+        for _, effect in pairs(Lighting:GetChildren()) do
+            if effect:IsA("PostEffect") or effect:IsA("BloomEffect") or effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect") or effect:IsA("DepthOfFieldEffect") then effect.Enabled = false end
+        end
+        if Terrain then Terrain.WaterWaveSize = 0 Terrain.WaterWaveSpeed = 0 Terrain.WaterReflectance = 0 Terrain.WaterTransparency = 0 end
+        for _, obj in pairs(game.Workspace:GetDescendants()) do optimizeObject(obj) end
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        pcall(function() RunService:Set3DRenderingEnabled(false) end)
+    else
+        FpsBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        FpsBtn.Text = "SUPER EKSTREM FPS Boost: OFF"
+        pcall(function() RunService:Set3DRenderingEnabled(true) end)
+        if originalLighting.GlobalShadows ~= nil then Lighting.GlobalShadows = originalLighting.GlobalShadows Lighting.FogEnd = originalLighting.FogEnd Lighting.Outlines = originalLighting.Outlines Lighting.EnvironmentSpecularScale = originalLighting.EnvironmentSpecularScale Lighting.EnvironmentDiffuseScale = originalLighting.EnvironmentDiffuseScale end
+        for _, effect in pairs(Lighting:GetChildren()) do
+            if effect:IsA("PostEffect") or effect:IsA("BloomEffect") or effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect") or effect:IsA("DepthOfFieldEffect") then effect.Enabled = true end
+        end
+        for obj, original in pairs(originalMaterials) do if obj and obj.Parent then obj.Material = original.Material obj.CastShadow = original.CastShadow obj.Reflectance = original.Reflectance end end
+        originalMaterials = {}
+    end
+end)
+
+game.Workspace.DescendantAdded:Connect(function(obj) if isFpsBoostActive then task.wait() optimizeObject(obj) end end)
+
+local function checkInventoryItem(nameENG, nameID)
+    if Player.Backpack:FindFirstChild(nameENG) or Player.Backpack:FindFirstChild(nameID) then return true
+    elseif Player.Character and (Player.Character:FindFirstChild(nameENG) or Player.Character:Findlocal Player = game.Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+local Lighting = game:GetService("Lighting")
+local Terrain = game:GetService("Workspace"):FindFirstChildOfClass("Terrain")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local existingGui = PlayerGui:FindFirstChild("indonesiaScript_Base")
+if existingGui then existingGui:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "indonesiaScript_Base"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+
+-- Variabel Fitur
+local isAutoFarming = false
+local isAutoSelling = false
+local isFpsBoostActive = false
+local isEspActive = false
+local isAntiRkActive = false -- FITUR BARU: Status Anti RK
+local currentLanguage = "ID"
+local originalMaterials = {}
+local originalLighting = {}
+local mcFont = Enum.Font.Code
+local espObjects = {}
+local lastHealth = 100
+
+local TeleportLocations = {
+    {"Dealership 🚗", Vector3.new(732.15, 3.71, 440.84)},
+    {"NPC Marshmallow 🍢", Vector3.new(510.86, 3.59, 600.58)},
+    {"Gunshop Mid 🔫", Vector3.new(215.91, 3.74, -175.05)},
+    {"Gunshop Ujung 🔫", Vector3.new(-469.25, 3.86, 358.66)},
+    {"Gunshop Tier 🔫", Vector3.new(1126.14, 3.79, 173.18)},
+    {"Casino 🎰", Vector3.new(1154.55, 3.36, -36.99)},
+    {"Deli Groseri 🏪", Vector3.new(-773.4, 3.66, -196.92)},
+    {"Apart 1 🏢", Vector3.new(1141.56, 10.11, 450.21)},
+    {"Apart 2 🏢", Vector3.new(1141.31, 10.11, 421.22)},
+    {"Apart 3 🏢", Vector3.new(986.26, 10.11, 249.57)},
+    {"Apart 4 🏢", Vector3.new(985.64, 10.11, 221.44)},
+    {"Apart CSN 1 🏢", Vector3.new(1178.64, 3.71, -229.34)},
+    {"Apart CSN 2 🏢", Vector3.new(1204.1, 3.71, -218.31)},
+    {"Apart CSN 3 🏢", Vector3.new(1203.83, 3.71, -180.34)},
+    {"Apart CSN 4 🏢", Vector3.new(1178.59, 4.63, -189.74)}
+}
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 340, 0, 460)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -230)
+MainFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Color3.fromRGB(255, 215, 0)
+MainFrame.Active = true
+MainFrame.Visible = true
+MainFrame.Parent = ScreenGui
+
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Text = "X"
+CloseButton.Font = mcFont
+CloseButton.TextSize = 18
+CloseButton.Parent = MainFrame
+
+local OpenButton = Instance.new("TextButton")
+OpenButton.Size = UDim2.new(0, 110, 0, 35)
+OpenButton.Position = UDim2.new(0, 10, 0, 10)
+OpenButton.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+OpenButton.TextColor3 = Color3.fromRGB(255, 215, 0)
+OpenButton.Text = "[ Open indo ]"
+OpenButton.Font = mcFont
+OpenButton.TextSize = 14
+OpenButton.Visible = false
+OpenButton.BorderSizePixel = 2
+OpenButton.BorderColor3 = Color3.fromRGB(255, 215, 0)
+OpenButton.ZIndex = 10
+OpenButton.Parent = ScreenGui
+
+local function toggleGui()
+    MainFrame.Visible = not MainFrame.Visible
+    OpenButton.Visible = not MainFrame.Visible
+end
+CloseButton.MouseButton1Click:Connect(toggleGui)
+OpenButton.MouseButton1Click:Connect(toggleGui)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.M then toggleGui() end
+end)
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = "indonesiaScript v3.2"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = mcFont
+Title.TextSize = 18
+Title.Parent = MainFrame
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, 0, 0, 35)
+TabBar.Position = UDim2.new(0, 0, 0, 40)
+TabBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+TabBar.BorderSizePixel = 0
+TabBar.Parent = MainFrame
+
+local TabHome = Instance.new("ScrollingFrame")
+TabHome.Name = "TabHome"
+TabHome.Size = UDim2.new(1, -20, 1, -95)
+TabHome.Position = UDim2.new(0, 10, 0, 85)
+TabHome.BackgroundTransparency = 1
+TabHome.CanvasSize = UDim2.new(0, 0, 0, 480) -- Ditambah sedikit space untuk tombol baru
+TabHome.ScrollBarThickness = 5
+TabHome.Visible = true
+TabHome.Parent = MainFrame
+
+local TabTeleport = Instance.new("ScrollingFrame")
+TabTeleport.Name = "TabTeleport"
+TabTeleport.Size = UDim2.new(1, -20, 1, -95)
+TabTeleport.Position = UDim2.new(0, 10, 0, 85)
+TabTeleport.BackgroundTransparency = 1
+TabTeleport.CanvasSize = UDim2.new(0, 0, 0, 600)
+TabTeleport.ScrollBarThickness = 5
+TabTeleport.Visible = false
+TabTeleport.Parent = MainFrame
+
+local TabCredits = Instance.new("ScrollingFrame")
+TabCredits.Name = "TabCredits"
+TabCredits.Size = UDim2.new(1, -20, 1, -95)
+TabCredits.Position = UDim2.new(0, 10, 0, 85)
+TabCredits.BackgroundTransparency = 1
+TabCredits.CanvasSize = UDim2.new(0, 0, 0, 250)
+TabCredits.ScrollBarThickness = 5
+TabCredits.Visible = false
+TabCredits.Parent = MainFrame
+
+local LayoutHome = Instance.new("UIListLayout")
+LayoutHome.Padding = UDim.new(0, 6)
+LayoutHome.Parent = TabHome
+
+local LayoutTeleport = Instance.new("UIListLayout")
+LayoutTeleport.Padding = UDim.new(0, 6)
+LayoutTeleport.Parent = TabTeleport
+
+local LayoutCredits = Instance.new("UIListLayout")
+LayoutCredits.Padding = UDim.new(0, 6)
+LayoutCredits.Parent = TabCredits
+
+local function createButton(text, container, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 32)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = mcFont
+    btn.TextSize = 13
+    btn.Text = text
+    btn.Parent = container
+    if callback then btn.MouseButton1Click:Connect(callback) end
+    return btn
+end
+
+local function createLabel(text, container, color)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -10, 0, 22)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = color or Color3.fromRGB(200, 200, 200)
+    lbl.Font = mcFont
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Text = text
+    lbl.Parent = container
+    return lbl
+end
+
+local BtnTabHome = Instance.new("TextButton")
+BtnTabHome.Size = UDim2.new(0.33, 0, 1, 0)
+BtnTabHome.Position = UDim2.new(0, 0, 0, 0)
+BtnTabHome.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+BtnTabHome.Text = "Home / Farm"
+BtnTabHome.TextColor3 = Color3.fromRGB(255, 215, 0)
+BtnTabHome.Font = mcFont
+BtnTabHome.TextSize = 11
+BtnTabHome.Parent = TabBar
+
+local BtnTabTeleport = Instance.new("TextButton")
+BtnTabTeleport.Size = UDim2.new(0.33, 0, 1, 0)
+BtnTabTeleport.Position = UDim2.new(0.33, 0, 0, 0)
+BtnTabTeleport.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+BtnTabTeleport.Text = "Teleport"
+BtnTabTeleport.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnTabTeleport.Font = mcFont
+BtnTabTeleport.TextSize = 11
+BtnTabTeleport.Parent = TabBar
+
+local BtnTabCredits = Instance.new("TextButton")
+BtnTabCredits.Size = UDim2.new(0.34, 0, 1, 0)
+BtnTabCredits.Position = UDim2.new(0.66, 0, 0, 0)
+BtnTabCredits.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+BtnTabCredits.Text = "Credits"
+BtnTabCredits.TextColor3 = Color3.fromRGB(255, 255, 255)
+BtnTabCredits.Font = mcFont
+BtnTabCredits.TextSize = 11
+BtnTabCredits.Parent = TabBar
+
+local function showTab(tabName)
+    TabHome.Visible = (tabName == "Home")
+    TabTeleport.Visible = (tabName == "Teleport")
+    TabCredits.Visible = (tabName == "Credits")
+    BtnTabHome.BackgroundColor3 = (tabName == "Home") and Color3.fromRGB(55, 55, 55) or Color3.fromRGB(40, 40, 40)
+    BtnTabHome.TextColor3 = (tabName == "Home") and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(255, 255, 255)
+    BtnTabTeleport.BackgroundColor3 = (tabName == "Teleport") and Color3.fromRGB(55, 55, 55) or Color3.fromRGB(40, 40, 40)
+    BtnTabTeleport.TextColor3 = (tabName == "Teleport") and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(255, 255, 255)
+    BtnTabCredits.BackgroundColor3 = (tabName == "Credits") and Color3.fromRGB(55, 55, 55) or Color3.fromRGB(40, 40, 40)
+    BtnTabCredits.TextColor3 = (tabName == "Credits") and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(255, 255, 255)
+end
+
+BtnTabHome.MouseButton1Click:Connect(function() showTab("Home") end)
+BtnTabTeleport.MouseButton1Click:Connect(function() showTab("Teleport") end)
+BtnTabCredits.MouseButton1Click:Connect(function() showTab("Credits") end)
+
+local function runTeleport(targetPos)
+    local targetCFrame = CFrame.new(targetPos) + Vector3.new(0, 4, 0)
+    local character = Player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local vehicle = nil
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("VehicleSeat") or obj:IsA("Seat") then
+                if obj.Occupant == character:FindFirstChildOfClass("Humanoid") then
+                    vehicle = obj.Parent
+                    break
+                end
+            end
+        end
+        
+        if vehicle and vehicle:IsA("Model") then
+            vehicle:PivotTo(targetCFrame)
+            return 
+        end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Health = 0
+            local newCharacter = Player.CharacterAdded:Wait()
+            local newRoot = newCharacter:WaitForChild("HumanoidRootPart", 10)
+            if newRoot then
+                task.wait(0.2)
+                newRoot.CFrame = targetCFrame
+            end
+        end
+    end
+end
+
+for _, locData in ipairs(TeleportLocations) do
+    local tpBtn = createButton("Go to: " .. locData[1], TabTeleport)
+    tpBtn.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
+    tpBtn.MouseButton1Click:Connect(function() runTeleport(locData[2]) end)
+end
+-- Tombol Anti RK baru di TabHome
+local AntiRkBtn = createButton("Anti RK (Safe Zone): OFF", TabHome)
+AntiRkBtn.MouseButton1Click:Connect(function()
+    isAntiRkActive = not isAntiRkActive
+    AntiRkBtn.BackgroundColor3 = isAntiRkActive and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50)
+    AntiRkBtn.Text = isAntiRkActive and "Anti RK (Safe Zone): ON" or "Anti RK (Safe Zone): OFF"
+    if isAntiRkActive and Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+        lastHealth = Player.Character:FindFirstChildOfClass("Humanoid").Health
+    end
+end)
+
+-- Loop Monitor Darah untuk Anti RK
+RunService.Heartbeat:Connect(function()
+    if isAntiRkActive and Player.Character then
+        local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoid.Health > 0 then
+            if humanoid.Health < lastHealth then
+                -- Darah berkurang! Langsung teleport ke Safe Zone Anda secara instan bersama kendaraan
+                runTeleport(Vector3.new(-675.08, 3.36, 49.62))
+                lastHealth = humanoid.Health
+            else
+                lastHealth = humanoid.Health
+            end
+        end
+    end
+end)
+
+local LangBtn = createButton("Ganti Bahasa: Indonesia", TabHome)
+LangBtn.MouseButton1Click:Connect(function()
+    if currentLanguage == "ID" then
+        currentLanguage = "ENG"
+        LangBtn.Text = "Language: English"
+    else
+        currentLanguage = "ID"
+        LangBtn.Text = "Ganti Bahasa: Indonesia"
+    end
+end)
+
+local EspBtn = createButton("ESP: OFF", TabHome)
+local FpsBtn = createButton("SUPER EKSTREM FPS Boost: OFF", TabHome)
+local FarmStatus = createLabel("Status Farm: Menunggu...", TabHome, Color3.fromRGB(255, 255, 255))
+local FarmBtn = createButton("Toggle Auto Farm: OFF", TabHome)
+local SellStatus = createLabel("Status Sell: Idle", TabHome, Color3.fromRGB(255, 255, 255))
+local SellBtn = createButton("Toggle Auto Sell: OFF", TabHome)
+
+createLabel("--- INDIKATOR TABUNGAN ---", TabHome, Color3.fromRGB(255, 215, 0))
+local InvWater = createLabel("Water/Air: 0", TabHome)
+local InvSugar = createLabel("Sugar Block Bag/Tas Blok Gula: 0", TabHome)
+local InvGelatin = createLabel("Gelatin: 0", TabHome)
+local InvSmallMBag = createLabel("Small Marshmallow Bag: 0", TabHome)
+local InvMedMBag = createLabel("Medium Marshmallow Bag: 0", TabHome)
+local InvLargeMBag = createLabel("Large Marshmallow Bag: 0", TabHome)
+
+createLabel("Skrip ini dibuat khusus untuk kamu.", TabCredits, Color3.fromRGB(255, 255, 255))
+createLabel("Pembuat: cocacola_espuma92", TabCredits)
+createLabel("Versi Penggabungan: 3.2 (3 Tab Menu)", TabCredits)
+createLabel("Tekan [M] untuk Menyembunyikan/Membuka GUI", TabCredits, Color3.fromRGB(255, 215, 0))
+
+local function createEsp(player)
+    if player == Player then return end
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "Esp_Billboard"
+    billboard.Size = UDim2.new(0, 200, 0, 60)
+    billboard.AlwaysOnTop = true
+    billboard.ExtentsOffset = Vector3.new(0, 3, 0)
+    billboard.Enabled = isEspActive
+    local espLabel = Instance.new("TextLabel")
+    espLabel.Size = UDim2.new(1, 0, 1, 0)
+    espLabel.BackgroundTransparency = 1
+    espLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    espLabel.TextSize = 13
+    espLabel.Font = mcFont
+    espLabel.TextStrokeTransparency = 0
+    espLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    espLabel.Parent = billboard
+    espObjects[player] = {Billboard = billboard, Label = espLabel}
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        if espObjects[player] == nil then
+            connection:Disconnect()
+        else
+            if not isEspActive or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") or not player.Character:FindFirstChild("Humanoid") then
+                billboard.Enabled = false
+                return
+            end
+            local char = player.Character
+            local hrp = char.HumanoidRootPart
+            local hum = char.Humanoid
+            local heldTool = char:FindFirstChildOfClass("Tool")
+            local toolName = heldTool and heldTool.Name or "None"
+            local distance = (Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")) and math.floor((Player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude) or 0
+            espLabel.Text = string.format("Name: %s\nHP: %d/%d\nTool: %s\nDist: %dm", player.Name, math.floor(hum.Health), math.floor(hum.MaxHealth), toolName, distance)
+            if billboard.Adornee ~= hrp then billboard.Adornee = hrp end
+            billboard.Enabled = true
+        end
+    end)
+    billboard.Parent = ScreenGui
+end
+
+local function removeEsp(player)
+    if espObjects[player] then
+        espObjects[player].Billboard:Destroy()
+        espObjects[player] = nil
+    end
+end
+
+for _, p in pairs(game.Players:GetPlayers()) do createEsp(p) end
+game.Players.PlayerAdded:Connect(createEsp)
+game.Players.PlayerRemoving:Connect(removeEsp)
+
+EspBtn.MouseButton1Click:Connect(function()
+    isEspActive = not isEspActive
+    EspBtn.BackgroundColor3 = isEspActive and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50)
+    EspBtn.Text = isEspActive and "ESP: ON" or "ESP: OFF"
+    for _, obj in pairs(espObjects) do obj.Billboard.Enabled = isEspActive end
+end)
+
+local function optimizeObject(object)
+    if not isFpsBoostActive then return end
+    if object:IsA("Part") or object:IsA("CornerWedgePart") or object:IsA("MeshPart") or object:IsA("WedgePart") then
+        if not originalMaterials[object] then
+            originalMaterials[object] = {Material = object.Material, CastShadow = object.CastShadow, Reflectance = object.Reflectance}
+        end
+        object.Material = Enum.Material.SmoothPlastic
+        object.CastShadow = false
+        object.Reflectance = 0
+    elseif object:IsA("Decal") or object:IsA("Texture") or object:IsA("Clothing") or object:IsA("ShirtGraphic") then
+        object:Destroy()
+    elseif object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Smoke") or object:IsA("Fire") or object:IsA("Sparkles") or object:IsA("Beam") then
+        object.Enabled = false
+    elseif object:IsA("Explosion") then
+        object.Visible = false
+    elseif object:IsA("Light") then
+        object.Enabled = false
+    elseif object:IsA("Mesh") or object:IsA("SpecialMesh") then
+        object:Destroy()
+    end
+end
+
+FpsBtn.MouseButton1Click:Connect(function()
+    isFpsBoostActive = not isFpsBoostActive
+    if isFpsBoostActive then
+        FpsBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+        FpsBtn.Text = "SUPER EKSTREM FPS Boost: ON"
+        originalLighting = {GlobalShadows = Lighting.GlobalShadows, FogEnd = Lighting.FogEnd, Outlines = Lighting.Outlines, EnvironmentSpecularScale = Lighting.EnvironmentSpecularScale, EnvironmentDiffuseScale = Lighting.EnvironmentDiffuseScale}
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 9e9
+        Lighting.Outlines = false
+        Lighting.EnvironmentSpecularScale = 0
+        Lighting.EnvironmentDiffuseScale = 0
+        for _, effect in pairs(Lighting:GetChildren()) do
+            if effect:IsA("PostEffect") or effect:IsA("BloomEffect") or effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect") or effect:IsA("DepthOfFieldEffect") then effect.Enabled = false end
+        end
+        if Terrain then Terrain.WaterWaveSize = 0 Terrain.WaterWaveSpeed = 0 Terrain.WaterReflectance = 0 Terrain.WaterTransparency = 0 end
+        for _, obj in pairs(game.Workspace:GetDescendants()) do optimizeObject(obj) end
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        pcall(function() RunService:Set3DRenderingEnabled(false) end)
+    else
+        FpsBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        FpsBtn.Text = "SUPER EKSTREM FPS Boost: OFF"
+        pcall(function() RunService:Set3DRenderingEnabled(true) end)
+        if originalLighting.GlobalShadows ~= nil then Lighting.GlobalShadows = originalLighting.GlobalShadows Lighting.FogEnd = originalLighting.FogEnd Lighting.Outlines = originalLighting.Outlines Lighting.EnvironmentSpecularScale = originalLighting.EnvironmentSpecularScale Lighting.EnvironmentDiffuseScale = originalLighting.EnvironmentDiffuseScale end
+        for _, effect in pairs(Lighting:GetChildren()) do
+            if effect:IsA("PostEffect") or effect:IsA("BloomEffect") or effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect") or effect:IsA("DepthOfFieldEffect") then effect.Enabled = true end
+        end
+        for obj, original in pairs(originalMaterials) do if obj and obj.Parent then obj.Material = original.Material obj.CastShadow = original.CastShadow obj.Reflectance = original.Reflectance end end
+        originalMaterials = {}
+    end
+end)
+
+game.Workspace.DescendantAdded:Connect(function(obj) if isFpsBoostActive then task.wait() optimizeObject(obj) end end)
+
+local function checkInventoryItem(nameENG, nameID)
+    if Player.Backpack:FindFirstChild(nameENG) or Player.Backpack:FindFirstChild(nameID) then return true
+    elseif Player.Character and (Player.Character:FindFirstChild(nameENG) or Player.Character:FindFirstChild(nameID)) then return true end
+    return false
+end
+
+local function equipItem(nameENG, nameID)
+    local target = Player.Backpack:FindFirstChild(nameENG) or Player.Backpack:FindFirstChild(nameID)
+    if target then
+        local humanoid = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then humanoid:EquipTool(target) return true end
+    elseif Player.Character:FindFirstChild(nameENG) or Player.Character:FindFirstChild(nameID) then return true end
+    return false
+end
+
+local function pressE()
+    pcall(function()
+        local vim = game:GetService("VirtualInputManager")
+        vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.05)
+        vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    end)
+end
+
+local function holdE(duration)
+    pcall(function()
+        local vim = game:GetService("VirtualInputManager")
+        vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(duration)
+        vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    end)
+end
+
+local function countItem(nameENG, nameID)
+    if not Player then return 0 end
+    local count = 0
+    for _, item in pairs(Player.Backpack:GetChildren()) do
+        if (item.Name:lower() == nameENG:lower() or item.Name:lower() == nameID:lower()) and item:IsA("Tool") then count = count + 1 end
+    end
+    if Player.Character then
+        local heldItem = Player.Character:FindFirstChildOfClass("Tool")
+        if heldItem and (heldItem.Name:lower() == nameENG:lower() or heldItem.Name:lower() == nameID:lower()) then count = count + 1 end
+    end
+    return count
+end
+
+RunService.Heartbeat:Connect(function()
+    InvWater.Text = "Water/Air: " .. countItem("Water", "Air")
+    InvSugar.Text = "Sugar Block Bag/Tas Blok Gula: " .. countItem("Sugar Block Bag", "Tas Blok Gula")
+    InvGelatin.Text = "Gelatin: " .. countItem("Gelatin", "Gelatin")
+    InvSmallMBag.Text = "Small Marshmallow Bag: " .. countItem("Small Marshmallow Bag", "Small Marshmallow Bag")
+    InvMedMBag.Text = "Medium Marshmallow Bag: " .. countItem("Medium Marshmallow Bag", "Medium Marshmallow Bag")
+    InvLargeMBag.Text = "Large Marshmallow Bag: " .. countItem("Large Marshmallow Bag", "Large Marshmallow Bag")
+end)
+
+task.spawn(function()
+    while true do
+        if isAutoFarming then
+            while isAutoFarming and not checkInventoryItem("Water", "Air") do task.wait(0.5) end
+            if isAutoFarming and equipItem("Water", "Air") then
+                pressE()
+                local timer = 0
+                while timer < 22 and isAutoFarming do task.wait(0.5) timer = timer + 0.5 end
+            end
+            while isAutoFarming and not checkInventoryItem("Sugar Block Bag", "Tas Blok Gula") do task.wait(0.5) end
+            if isAutoFarming and equipItem("Sugar Block Bag", "Tas Blok Gula") then
+                pressE()
+                local timer = 0
+                while timer < 2 and isAutoFarming do task.wait(0.5) timer = timer + 0.5 end
+            end
+            while isAutoFarming and not checkInventoryItem("Gelatin", "Gelatin") do task.wait(0.5) end
+            if isAutoFarming and equipItem("Gelatin", "Gelatin") then
+                pressE()
+                local timer = 0
+                while timer < 47 and isAutoFarming do task.wait(0.5) timer = timer + 0.5 end
+            end
+            while isAutoFarming and not checkInventoryItem("Empty Bag", "Tas kosong") do task.wait(0.5) end
+            if isAutoFarming and equipItem("Empty Bag", "Tas kosong") then
+                pressE()
+                task.wait(1.5)
+            end
+            task.wait(0.1)
+        else task.wait(0.5) end
+    end
+end)
+
+FarmBtn.MouseButton1Click:Connect(function()
+    isAutoFarming = not isAutoFarming
+    FarmBtn.BackgroundColor3 = isAutoFarming and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50)
+    FarmBtn.Text = isAutoFarming and "Toggle Auto Farm: ON" or "Toggle Auto Farm: OFF"
+end)
+
+task.spawn(function()
+    while true do
+        if isAutoSelling then
+            local mTypes = {"Small Marshmallow Bag", "Medium Marshmallow Bag", "Large Marshmallow Bag"}
+            for _, mName in pairs(mTypes) do
+                if checkInventoryItem(mName, mName) then
+                    if equipItem(mName, mName) then
+                        holdE(2)
+                        task.wait(0.2)
+                    end
+                end
+            end
+            task.wait(0.5)
+        else task.wait(0.5) end
+    end
+end)
+
+SellBtn.MouseButton1Click:Connect(function()
+    isAutoSelling = not isAutoSelling
+    SellBtn.BackgroundColor3 = isAutoSelling and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50)
+    SellBtn.Text = isAutoSelling and "Toggle Auto Sell: ON" or "Toggle Auto Sell: OFF"
+end)
